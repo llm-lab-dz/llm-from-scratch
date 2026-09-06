@@ -1,0 +1,5 @@
+# Kaggle already has torch + CUDA preinstalled — do NOT reinstall torch here,
+# it can break the GPU-enabled version Kaggle provides.
+tokenizers>=0.20
+datasets>=2.18
+numpy

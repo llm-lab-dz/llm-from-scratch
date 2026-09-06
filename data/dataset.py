@@ -13,7 +13,11 @@ import os
 import urllib.request
 import numpy as np
 
-RAW_DIR = "data/raw"
+# Anchor all paths to THIS script's location, not the current working
+# directory. This means it works correctly whether you run it from the
+# repo root, from inside data/, or from anywhere else.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+RAW_DIR = os.path.join(SCRIPT_DIR, "raw")
 os.makedirs(RAW_DIR, exist_ok=True)
 
 
@@ -74,16 +78,19 @@ def tokenize_and_save(tokenizer_path, val_fraction=0.05):
     split = int(len(ids) * (1 - val_fraction))
     train_ids, val_ids = ids[:split], ids[split:]
 
-    train_ids.tofile("data/train.bin")
-    val_ids.tofile("data/val.bin")
+    train_path = os.path.join(SCRIPT_DIR, "train.bin")
+    val_path = os.path.join(SCRIPT_DIR, "val.bin")
+    train_ids.tofile(train_path)
+    val_ids.tofile(val_path)
     print(f"Total tokens: {len(ids):,} | train: {len(train_ids):,} | val: {len(val_ids):,}")
-    print("Saved data/train.bin and data/val.bin")
+    print(f"Saved {train_path} and {val_path}")
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--step", choices=["download", "tokenize"], required=True)
-    parser.add_argument("--tokenizer", type=str, default="tokenizer/tokenizer.json")
+    parser.add_argument("--tokenizer", type=str,
+                         default=os.path.join(SCRIPT_DIR, "..", "tokenizer", "tokenizer.json"))
     parser.add_argument("--code_examples", type=int, default=3000)
     args = parser.parse_args()
 
