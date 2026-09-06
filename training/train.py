@@ -17,7 +17,7 @@ import torch
 
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from model.gpt import GPT, GPTConfig
+from model.model import GPT, GPTConfig
 
 
 def get_batch(data, block_size, batch_size, device):

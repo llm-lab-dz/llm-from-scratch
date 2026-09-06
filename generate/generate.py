@@ -13,7 +13,7 @@ import torch
 from tokenizers import Tokenizer
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from model.gpt import GPT
+from model.model import GPT
 
 
 def main():
