@@ -206,7 +206,8 @@ def main():
     if ckpt_to_load:
         if is_master:
             print(f"Resuming from {ckpt_to_load}")
-        ckpt = torch.load(ckpt_to_load, map_location=device, weights_only=False)        model.load_state_dict(ckpt["model"])
+        ckpt = torch.load(ckpt_to_load, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
         if "scaler" in ckpt:
             scaler.load_state_dict(ckpt["scaler"])
