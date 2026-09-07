@@ -194,18 +194,19 @@ def main():
             ensure_repo(args.hf_repo)
             ckpt_to_load = pull_checkpoint(args.hf_repo, args.ckpt_dir, args.hf_ckpt_name)
         if ddp:
-            dist.barrier()  # let rank 0 finish downloading before others look for the file
-            if not is_master:
-                candidate = os.path.join(args.ckpt_dir, args.hf_ckpt_name)
-                ckpt_to_load = candidate if os.path.exists(candidate) else None
+            # Broadcast rank0's decision so every rank agrees on whether a
+            # checkpoint was actually found -- don't let other ranks guess
+            # based on stale local files.
+            obj_list = [ckpt_to_load] if is_master else [None]
+            dist.broadcast_object_list(obj_list, src=0)
+            ckpt_to_load = obj_list[0]
     if ckpt_to_load is None and args.resume and os.path.exists(args.resume):
         ckpt_to_load = args.resume
 
     if ckpt_to_load:
         if is_master:
             print(f"Resuming from {ckpt_to_load}")
-        ckpt = torch.load(ckpt_to_load, map_location=device)
-        model.load_state_dict(ckpt["model"])
+        ckpt = torch.load(ckpt_to_load, map_location=device, weights_only=False)        model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
         if "scaler" in ckpt:
             scaler.load_state_dict(ckpt["scaler"])
