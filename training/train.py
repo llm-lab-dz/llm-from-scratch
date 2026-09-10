@@ -111,13 +111,14 @@ def build_optimizer(model, lr, weight_decay):
     )
 
 
-def save_checkpoint(path, raw_model, optimizer, scaler, config, it, args):
+def save_checkpoint(path, raw_model, optimizer, scaler, config, it, args, elapsed_min_total=0.0):
     checkpoint = {
         "model": raw_model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "scaler": scaler.state_dict(),
         "config": config,
         "iter": it,
+        "elapsed_min_total": elapsed_min_total,
         "args": vars(args),
         "torch_rng_state": torch.get_rng_state(),
         "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
@@ -265,9 +266,11 @@ def main():
         if "python_rng_state" in ckpt:
             random.setstate(ckpt["python_rng_state"])
         start_iter = ckpt["iter"] + 1
+        elapsed_min_total_prev = ckpt.get("elapsed_min_total", 0.0)
     else:
         if is_master:
             print("No checkpoint found -- starting from scratch")
+        elapsed_min_total_prev = 0.0
 
     raw_model = model
     if ddp:
@@ -309,8 +312,15 @@ def main():
             if is_master and it % args.log_interval == 0:
                 tokens_per_step = args.batch_size * args.grad_accum_steps * world_size * args.block_size
                 tokens_per_second = tokens_per_step / max(time.time() - step_start, 1e-9)
-                print(f"iter {it}: loss {loss.item() * args.grad_accum_steps:.4f} | lr {lr:.2e} | "
-                    f"elapsed {elapsed_min:.1f} min | {tokens_per_second:,.0f} tokens/s")
+                total_elapsed_min = elapsed_min_total_prev + elapsed_min
+                pct_done = 100.0 * it / args.max_iters
+                avg_min_per_iter = total_elapsed_min / it if it > 0 else 0.0
+                eta_min = (args.max_iters - it) * avg_min_per_iter
+                budget_left_min = max(0.0, args.time_budget_min - elapsed_min)
+                print(f"iter {it}/{args.max_iters} ({pct_done:.1f}%) | loss {loss.item() * args.grad_accum_steps:.4f} | "
+                    f"lr {lr:.2e} | {tokens_per_second:,.0f} tokens/s | "
+                    f"total time {total_elapsed_min/60:.1f}h | ETA {eta_min/60:.1f}h left overall | "
+                    f"this session stops in {budget_left_min/60:.1f}h")
 
             if is_master and it % args.eval_interval == 0 and it > 0:
                 losses = estimate_loss(raw_model, train_data, val_data, args.block_size,
@@ -321,8 +331,10 @@ def main():
                     f"val loss {losses['val']:.4f} (ppl {val_ppl:.2f})")
 
             if is_master and it % args.ckpt_interval == 0 and it > 0:
-                save_checkpoint(local_ckpt_path, raw_model, optimizer, scaler, config, it, args)
-                print(f"  -> saved local checkpoint at iter {it}")
+                save_checkpoint(local_ckpt_path, raw_model, optimizer, scaler, config, it, args,
+                                 elapsed_min_total=elapsed_min_total_prev + elapsed_min)
+                pct_done = 100.0 * it / args.max_iters
+                print(f"  -> saved local checkpoint at iter {it} ({pct_done:.1f}% done)")
                 if args.hf_repo:
                     push_checkpoint(local_ckpt_path, args.hf_repo, args.hf_ckpt_name)
                     print(f"  -> pushed checkpoint to {args.hf_repo}")
@@ -331,8 +343,16 @@ def main():
         # or crashed/Ctrl-C. This is the safety net that keeps a dying
         # session from losing progress since the last ckpt_interval.
         if is_master:
-            save_checkpoint(local_ckpt_path, raw_model, optimizer, scaler, config, it, args)
-            print(f"Final checkpoint saved to {local_ckpt_path} at iter {it}")
+            final_elapsed_min = elapsed_min_total_prev + (time.time() - start_time) / 60
+            save_checkpoint(local_ckpt_path, raw_model, optimizer, scaler, config, it, args,
+                             elapsed_min_total=final_elapsed_min)
+            pct_done = 100.0 * it / args.max_iters
+            remaining_iters = max(0, args.max_iters - it)
+            avg_min_per_iter = final_elapsed_min / it if it > 0 else 0.0
+            eta_min = remaining_iters * avg_min_per_iter
+            print(f"Final checkpoint saved to {local_ckpt_path} at iter {it}/{args.max_iters} "
+                  f"({pct_done:.1f}% done) | total time so far: {final_elapsed_min/60:.1f}h | "
+                  f"~{eta_min/60:.1f}h of training left across future sessions")
             if args.hf_repo:
                 try:
                     push_checkpoint(local_ckpt_path, args.hf_repo, args.hf_ckpt_name)
