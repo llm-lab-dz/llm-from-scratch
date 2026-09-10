@@ -24,6 +24,7 @@ Run in three steps:
     python data/dataset.py --step tokenize --tokenizer tokenizer/tokenizer.json --cleanup_raw
 """
 import argparse
+import json
 import os
 import urllib.request
 
@@ -124,8 +125,12 @@ def tokenize_and_save(tokenizer_path, val_fraction=0.05, chunk_chars=2_000_000, 
     val_every_n_chunks = max(1, round(1 / val_fraction))
 
     total_train, total_val = 0, 0
+    raw_files = [
+        fname for fname in sorted(os.listdir(RAW_DIR))
+        if os.path.isfile(os.path.join(RAW_DIR, fname))
+    ]
     with open(train_path, "wb") as train_f, open(val_path, "wb") as val_f:
-        for fname in sorted(os.listdir(RAW_DIR)):
+        for fname in raw_files:
             path = os.path.join(RAW_DIR, fname)
             print(f"Tokenizing {path} ...")
             file_train, file_val = 0, 0
@@ -136,6 +141,8 @@ def tokenize_and_save(tokenizer_path, val_fraction=0.05, chunk_chars=2_000_000, 
                     if not text:
                         break
                     ids = tok.encode(text).ids
+                    if ids and max(ids) >= np.iinfo(np.uint16).max:
+                        raise ValueError("Token ID does not fit in uint16; use a larger dataset dtype")
                     arr = np.array(ids, dtype=np.uint16)
                     if chunk_idx % val_every_n_chunks == 0:
                         val_f.write(arr.tobytes())
@@ -154,6 +161,20 @@ def tokenize_and_save(tokenizer_path, val_fraction=0.05, chunk_chars=2_000_000, 
 
     print(f"\nTotal tokens: {total_train + total_val:,} | train: {total_train:,} | val: {total_val:,}")
     print(f"Saved {train_path} and {val_path}")
+    metadata_path = os.path.join(SCRIPT_DIR, "dataset_metadata.json")
+    with open(metadata_path, "w", encoding="utf-8") as metadata_file:
+        json.dump({
+            "tokenizer_path": os.path.abspath(tokenizer_path),
+            "vocab_size": tok.get_vocab_size(),
+            "dtype": "uint16",
+            "val_fraction_requested": val_fraction,
+            "chunk_chars": chunk_chars,
+            "raw_files": raw_files,
+            "train_tokens": total_train,
+            "val_tokens": total_val,
+        }, metadata_file, indent=2)
+        metadata_file.write("\n")
+    print(f"Saved {metadata_path}")
 
 
 def main():
