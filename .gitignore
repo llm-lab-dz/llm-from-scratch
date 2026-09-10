@@ -14,3 +14,8 @@ data/dataset_metadata.json
 *.safetensors
 .env
 .env.*
+
+# deployment / OS
+.DS_Store
+*.log
+.render-buildlogs/
