@@ -5,3 +5,12 @@ venv/
 
 checkpoints/
 data/tokenizer.json
+data/raw/
+data/*.bin
+data/dataset_metadata.json
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+.env
+.env.*
