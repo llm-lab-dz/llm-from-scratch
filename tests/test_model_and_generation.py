@@ -4,7 +4,7 @@ import torch
 
 from generate.generate import sample
 from model.model import GPT, GPTConfig
-from training.train import build_optimizer
+from training.train import build_optimizer, get_batch
 
 
 class ModelTests(unittest.TestCase):
@@ -51,6 +51,15 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(len(optimizer.param_groups), 2)
         self.assertEqual(optimizer.param_groups[0]["weight_decay"], 0.1)
         self.assertEqual(optimizer.param_groups[1]["weight_decay"], 0.0)
+
+    def test_batch_sampling_supports_minimum_valid_dataset_length(self):
+        data = torch.arange(10, dtype=torch.int64).numpy()
+
+        inputs, targets = get_batch(data, block_size=8, batch_size=1, device="cpu")
+
+        self.assertEqual(inputs.shape, (1, 8))
+        self.assertEqual(targets.shape, (1, 8))
+        torch.testing.assert_close(targets, inputs + 1)
 
 
 class GenerationTests(unittest.TestCase):

@@ -198,8 +198,11 @@ def main():
                 f"Dataset vocabulary ({dataset_vocab_size}) does not match model vocabulary "
                 f"({args.vocab_size})"
             )
-    if len(train_data) <= args.block_size or len(val_data) <= args.block_size:
-        raise ValueError("train.bin and val.bin must each contain more than block_size tokens")
+    minimum_tokens = args.block_size + 2
+    if len(train_data) < minimum_tokens or len(val_data) < minimum_tokens:
+        raise ValueError(
+            "train.bin and val.bin must each contain at least block_size + 2 tokens"
+        )
 
     config = GPTConfig(
         vocab_size=args.vocab_size,
