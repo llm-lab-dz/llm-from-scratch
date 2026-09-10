@@ -4,6 +4,7 @@ import torch
 
 from generate.generate import sample
 from model.model import GPT, GPTConfig
+from training.train import build_optimizer
 
 
 class ModelTests(unittest.TestCase):
@@ -43,6 +44,13 @@ class ModelTests(unittest.TestCase):
 
         with self.assertRaises(AssertionError):
             self.model(inputs)
+
+    def test_optimizer_separates_decay_parameters(self):
+        optimizer = build_optimizer(self.model, lr=1e-3, weight_decay=0.1)
+
+        self.assertEqual(len(optimizer.param_groups), 2)
+        self.assertEqual(optimizer.param_groups[0]["weight_decay"], 0.1)
+        self.assertEqual(optimizer.param_groups[1]["weight_decay"], 0.0)
 
 
 class GenerationTests(unittest.TestCase):

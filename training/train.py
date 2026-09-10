@@ -91,6 +91,26 @@ def get_lr(it, warmup_iters, lr_decay_iters, lr, min_lr):
     return min_lr + coeff * (lr - min_lr)
 
 
+def build_optimizer(model, lr, weight_decay):
+    decay_parameters = []
+    no_decay_parameters = []
+    for parameter in model.parameters():
+        if not parameter.requires_grad:
+            continue
+        if parameter.dim() >= 2:
+            decay_parameters.append(parameter)
+        else:
+            no_decay_parameters.append(parameter)
+    return torch.optim.AdamW(
+        [
+            {"params": decay_parameters, "weight_decay": weight_decay},
+            {"params": no_decay_parameters, "weight_decay": 0.0},
+        ],
+        lr=lr,
+        betas=(0.9, 0.95),
+    )
+
+
 def save_checkpoint(path, raw_model, optimizer, scaler, config, it, args):
     checkpoint = {
         "model": raw_model.state_dict(),
@@ -198,8 +218,7 @@ def main():
               f"{world_size} GPU(s) = {eff_batch} sequences/step "
               f"(~{eff_batch * args.block_size:,} tokens/step)")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay,
-                                   betas=(0.9, 0.95))
+    optimizer = build_optimizer(model, args.lr, args.weight_decay)
     scaler = torch.cuda.amp.GradScaler(enabled=("cuda" in str(device)))
     start_iter = 0
 
@@ -224,7 +243,11 @@ def main():
             print(f"Resuming from {ckpt_to_load}")
         ckpt = torch.load(ckpt_to_load, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
-        optimizer.load_state_dict(ckpt["optimizer"])
+        try:
+            optimizer.load_state_dict(ckpt["optimizer"])
+        except ValueError as error:
+            if is_master:
+                print(f"Could not restore optimizer layout ({error}); resetting optimizer state")
         if "scaler" in ckpt:
             scaler.load_state_dict(ckpt["scaler"])
         if "torch_rng_state" in ckpt:
