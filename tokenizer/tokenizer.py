@@ -1,10 +1,10 @@
 """
-Trains a small Byte-Pair Encoding (BPE) tokenizer on your raw text corpus.
-Run this AFTER you've downloaded your raw text files with prepare_data.py's
+Trains a Byte-Pair Encoding (BPE) tokenizer on your raw text corpus.
+Run this AFTER you've downloaded your raw text files with data/dataset.py's
 download step (or point --files at any .txt files you already have).
 
 Usage:
-    python train_tokenizer.py --files data/raw/*.txt --vocab_size 8000 --out tokenizer.json
+    python tokenizer/tokenizer.py --files data/raw/*.txt --vocab_size 16000 --out tokenizer/tokenizer.json
 """
 import argparse
 import glob
@@ -15,7 +15,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--files", nargs="+", required=True,
                          help="Glob pattern(s) for raw text files, e.g. data/raw/*.txt")
-    parser.add_argument("--vocab_size", type=int, default=8000)
+    parser.add_argument("--vocab_size", type=int, default=16000)
     parser.add_argument("--out", type=str, default="tokenizer.json")
     args = parser.parse_args()
 

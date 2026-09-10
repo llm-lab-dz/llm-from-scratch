@@ -19,9 +19,9 @@ the corpus gets. This matters a lot at this scale: holding ~1B token ids in
 a plain Python list would need 25-30GB+ of RAM, which Kaggle doesn't have.
 
 Run in three steps:
-    python prepare_data.py --step download
-    python ../tokenizer/train_tokenizer.py --files raw/*.txt --vocab_size 16000 --out ../tokenizer/tokenizer.json
-    python prepare_data.py --step tokenize --tokenizer ../tokenizer/tokenizer.json --cleanup_raw
+    python data/dataset.py --step download
+    python tokenizer/tokenizer.py --files data/raw/*.txt --vocab_size 16000 --out tokenizer/tokenizer.json
+    python data/dataset.py --step tokenize --tokenizer tokenizer/tokenizer.json --cleanup_raw
 """
 import argparse
 import os
