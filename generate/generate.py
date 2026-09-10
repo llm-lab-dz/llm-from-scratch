@@ -10,14 +10,24 @@ from model.model import GPT
 
 
 def sample(model, idx, max_new_tokens, block_size, temperature=0.8, top_k=50, top_p=0.9, repetition_penalty=1.3):
+    if temperature <= 0:
+        raise ValueError("temperature must be greater than zero")
+    if top_k is not None and top_k <= 0:
+        raise ValueError("top_k must be greater than zero or None")
+    if not 0 < top_p <= 1:
+        raise ValueError("top_p must be in the interval (0, 1]")
+    if repetition_penalty <= 0:
+        raise ValueError("repetition_penalty must be greater than zero")
+
     for _ in range(max_new_tokens):
         idx_cond = idx[:, -block_size:]
         logits, _ = model(idx_cond)
         logits = logits[:, -1, :] / temperature
 
         # repetition penalty: discourage tokens already generated
-        for token_id in set(idx[0].tolist()):
-            logits[0, token_id] /= repetition_penalty
+        for batch_index in range(idx.size(0)):
+            for token_id in set(idx[batch_index].tolist()):
+                logits[batch_index, token_id] /= repetition_penalty
 
         # top-k
         if top_k is not None:

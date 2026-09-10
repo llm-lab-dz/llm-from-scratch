@@ -74,6 +74,32 @@ class GenerationTests(unittest.TestCase):
         torch.testing.assert_close(output[:, :3], prompt)
         self.assertTrue(torch.all((output >= 0) & (output < config.vocab_size)))
 
+    def test_sample_supports_multiple_sequences(self):
+        torch.manual_seed(13)
+        config = GPTConfig(
+            vocab_size=24,
+            block_size=8,
+            n_layer=1,
+            n_head=2,
+            n_embd=8,
+            dropout=0.0,
+        )
+        model = GPT(config).eval()
+        prompts = torch.tensor([[1, 2], [3, 4]])
+
+        output = sample(
+            model,
+            prompts,
+            max_new_tokens=2,
+            block_size=config.block_size,
+            top_k=5,
+            top_p=0.9,
+            repetition_penalty=1.1,
+        )
+
+        self.assertEqual(output.shape, (2, 4))
+        torch.testing.assert_close(output[:, :2], prompts)
+
 
 if __name__ == "__main__":
     unittest.main()
