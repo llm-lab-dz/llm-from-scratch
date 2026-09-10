@@ -71,7 +71,9 @@ if __name__ == "__main__":
     parser.add_argument("--action", choices=["push", "pull"], required=True)
     parser.add_argument("--repo_id", type=str, required=True)
     parser.add_argument("--local_dir", type=str, default=".")
-    parser.add_argument("--files", nargs="+", default=["train.bin", "val.bin", "tokenizer.json"])
+    parser.add_argument("--files", nargs="+", default=[
+        "train.bin", "val.bin", "tokenizer.json", "dataset_metadata.json"
+    ])
     args = parser.parse_args()
 
     if args.action == "push":

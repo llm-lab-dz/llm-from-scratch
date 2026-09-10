@@ -18,6 +18,7 @@ the loop exits for any reason (time budget reached, finished, crashed,
 Ctrl-C), so a session dying mid-run costs you at most --ckpt_interval steps.
 """
 import argparse
+import json
 import math
 import os
 import random
@@ -167,6 +168,18 @@ def main():
 
     train_data = np.memmap(os.path.join(args.data_dir, "train.bin"), dtype=np.uint16, mode="r")
     val_data = np.memmap(os.path.join(args.data_dir, "val.bin"), dtype=np.uint16, mode="r")
+    metadata_path = os.path.join(args.data_dir, "dataset_metadata.json")
+    if os.path.exists(metadata_path):
+        with open(metadata_path, "r", encoding="utf-8") as metadata_file:
+            metadata = json.load(metadata_file)
+        dataset_vocab_size = metadata.get("vocab_size")
+        if dataset_vocab_size != args.vocab_size:
+            raise ValueError(
+                f"Dataset vocabulary ({dataset_vocab_size}) does not match model vocabulary "
+                f"({args.vocab_size})"
+            )
+    if len(train_data) <= args.block_size or len(val_data) <= args.block_size:
+        raise ValueError("train.bin and val.bin must each contain more than block_size tokens")
 
     config = GPTConfig(
         vocab_size=args.vocab_size,
