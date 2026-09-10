@@ -245,6 +245,7 @@ def main():
                     print(f"Time budget of {args.time_budget_min} min reached, stopping and saving.")
                 break
 
+            step_start = time.time()
             lr = get_lr(it, args.warmup_iters, args.lr_decay_iters, args.lr, args.min_lr)
             for g in optimizer.param_groups:
                 g["lr"] = lr
@@ -268,13 +269,17 @@ def main():
 
             if is_master and it % args.log_interval == 0:
                 tokens_per_step = args.batch_size * args.grad_accum_steps * world_size * args.block_size
+                tokens_per_second = tokens_per_step / max(time.time() - step_start, 1e-9)
                 print(f"iter {it}: loss {loss.item() * args.grad_accum_steps:.4f} | lr {lr:.2e} | "
-                      f"elapsed {elapsed_min:.1f} min | ~{tokens_per_step:,} tokens/step")
+                    f"elapsed {elapsed_min:.1f} min | {tokens_per_second:,.0f} tokens/s")
 
             if is_master and it % args.eval_interval == 0 and it > 0:
                 losses = estimate_loss(raw_model, train_data, val_data, args.block_size,
                                         args.batch_size, device, args.eval_iters)
-                print(f"  -> eval: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+                train_ppl = math.exp(losses["train"])
+                val_ppl = math.exp(losses["val"])
+                print(f"  -> eval: train loss {losses['train']:.4f} (ppl {train_ppl:.2f}), "
+                    f"val loss {losses['val']:.4f} (ppl {val_ppl:.2f})")
 
             if is_master and it % args.ckpt_interval == 0 and it > 0:
                 save_checkpoint(local_ckpt_path, raw_model, optimizer, scaler, config, it, args)
