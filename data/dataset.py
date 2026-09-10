@@ -117,6 +117,11 @@ def tokenize_and_save(tokenizer_path, val_fraction=0.05, chunk_chars=2_000_000, 
     Kaggle's RAM budget. Each file's chunks are split train/val by chunk
     index (roughly val_fraction of chunks -> val), which needs no upfront
     knowledge of the file's total token count."""
+    if not 0 < val_fraction < 1:
+        raise ValueError("val_fraction must be between 0 and 1")
+    if chunk_chars <= 0:
+        raise ValueError("chunk_chars must be greater than zero")
+
     from tokenizers import Tokenizer
     tok = Tokenizer.from_file(tokenizer_path)
 
@@ -141,7 +146,7 @@ def tokenize_and_save(tokenizer_path, val_fraction=0.05, chunk_chars=2_000_000, 
                     if not text:
                         break
                     ids = tok.encode(text).ids
-                    if ids and max(ids) >= np.iinfo(np.uint16).max:
+                    if ids and max(ids) > np.iinfo(np.uint16).max:
                         raise ValueError("Token ID does not fit in uint16; use a larger dataset dtype")
                     arr = np.array(ids, dtype=np.uint16)
                     if chunk_idx % val_every_n_chunks == 0:
