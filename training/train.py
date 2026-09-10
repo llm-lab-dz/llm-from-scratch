@@ -91,7 +91,7 @@ def get_lr(it, warmup_iters, lr_decay_iters, lr, min_lr):
 
 
 def save_checkpoint(path, raw_model, optimizer, scaler, config, it, args):
-    torch.save({
+    checkpoint = {
         "model": raw_model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "scaler": scaler.state_dict(),
@@ -102,7 +102,10 @@ def save_checkpoint(path, raw_model, optimizer, scaler, config, it, args):
         "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
         "numpy_rng_state": np.random.get_state(),
         "python_rng_state": random.getstate(),
-    }, path)
+    }
+    temporary_path = f"{path}.tmp"
+    torch.save(checkpoint, temporary_path)
+    os.replace(temporary_path, path)
 
 
 def main():
