@@ -61,6 +61,9 @@ config = ckpt["config"]
 model = GPT(config).to(DEVICE)
 model.load_state_dict(ckpt["model"])
 model = model.half()
+del ckpt
+import gc
+gc.collect()
 model.eval()
 
 tokenizer = Tokenizer.from_file(tokenizer_path)
